@@ -1,23 +1,10 @@
-'use client';
-
-import { useEffect } from 'react';
+import ProductList from '@/components/ProductList';
 
 export default function HomePage() {
-  useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-
-    if (tg) {
-      tg.ready(); // сообщаем Telegram, что WebApp готов
-      tg.expand(); // расширяем WebApp на весь экран
-      tg.MainButton.setText('Перейти к оплате');
-      tg.MainButton.show();
-    }
-  }, []);
-
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-6">
-      <h1 className="text-3xl font-bold mb-4">Добро пожаловать в магазин</h1>
-      <p>Здесь скоро будут товары...</p>
+    <main className="min-h-screen bg-neutral-900">
+      <h1 className="text-xl font-bold p-4 text-gray-300">Каталог товаров</h1>
+      <ProductList />
     </main>
   );
 }
