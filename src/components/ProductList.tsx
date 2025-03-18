@@ -1,146 +1,108 @@
 'use client';
 
-import { useState } from 'react';
-import { FaMinus, FaPlus } from 'react-icons/fa';
+import React, { useState, useMemo } from 'react';
+import { FaQuestionCircle, FaMinus, FaPlus, FaShoppingCart, FaUserCircle } from 'react-icons/fa';
+import ProductModal from './ProductModal';
+import Image from 'next/image';
+import { Header } from './Header';
 
 type Product = {
   id: number;
   name: string;
   price: number;
   image: string;
-  group: 'red' | 'blue';
   details: { [key: string]: string };
-  dependsOn?: number[]; // ID зависимых товаров
-  maxBySumOf?: number[]; // ID товаров, суммы которых дают максимум
+  group: 'red' | 'blue';
+  dependsOn?: number[];
 };
 
-const products: Product[] = [
-  {
-    id: 1,
-    name: 'Товар 1',
-    price: 1500,
-    image: '/product1.png',
-    group: 'red',
-    details: { Описание: 'Первый товар', Особенность: 'Без сахара' },
-  },
-  {
-    id: 2,
-    name: 'Товар 2',
-    price: 2400,
-    image: '/product2.png',
-    group: 'red',
-    details: { Описание: 'Второй товар', Особенность: 'Со вкусом малины' },
-    dependsOn: [1],
-  },
-  {
-    id: 3,
-    name: 'Товар 3',
-    price: 1000,
-    image: '/product3.png',
-    group: 'blue',
-    details: { Описание: 'Третий товар', Особенность: 'Мягкий' },
-  },
-  {
-    id: 4,
-    name: 'Товар 4',
-    price: 1300,
-    image: '/product4.png',
-    group: 'blue',
-    details: { Описание: 'Четвертый товар', Особенность: 'Хрустящий' },
-  },
-  {
-    id: 5,
-    name: 'Товар 5',
-    price: 3000,
-    image: '/product5.png',
-    group: 'blue',
-    details: { Описание: 'Пятый товар', Особенность: 'Ультра-версия' },
-    dependsOn: [3, 4],
-    maxBySumOf: [3, 4],
-  },
-];
+type Props = {
+  products: Product[];
+};
 
-export default function ProductList() {
-  const [quantities, setQuantities] = useState<Record<number, number>>({});
+export default function ProductList({ products }: Props) {
+  const [quantities, setQuantities] = useState<{ [productId: number]: number }>({});
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  const getTotalOf = (ids: number[]) =>
-    ids.reduce((sum, id) => sum + (quantities[id] || 0), 0);
+  const totalPrice = useMemo(() => {
+    return products.reduce((sum, p) => {
+      const qty = quantities[p.id] || 0;
+      return sum + p.price * qty;
+    }, 0);
+  }, [products, quantities]);
 
-  const handleChange = (id: number, delta: number, max?: number) => {
+  const getMaxAvailable = (product: Product): number => {
+    if (!product.dependsOn) return 99;
+
+    return product.dependsOn.reduce((sum, depId) => {
+      return sum + (quantities[depId] || 0);
+    }, 0);
+  };
+
+  const isAvailable = (product: Product): boolean => {
+    if (!product.dependsOn) return true;
+    return getMaxAvailable(product) > 0;
+  };
+
+  const handleChange = (productId: number, delta: number) => {
     setQuantities((prev) => {
-      const current = prev[id] || 0;
-      const next = current + delta;
-      if (next < 0) return prev;
-      if (typeof max === 'number' && next > max) return prev;
-      return { ...prev, [id]: next };
+      const current = prev[productId] || 0;
+      const newQty = Math.max(0, current + delta);
+      return { ...prev, [productId]: newQty };
     });
   };
 
   return (
-    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {products.map((product) => {
-        const quantity = quantities[product.id] || 0;
+    <div className="min-h-screen bg-[#1c1c1e] text-white px-4 py-2">
+      <Header totalPrice={totalPrice} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {products.map((product) => {
+          const groupColor = product.group === 'red' ? 'border-red-500' : 'border-blue-500';
+          const qty = quantities[product.id] || 0;
+          const maxQty = getMaxAvailable(product);
+          const available = isAvailable(product);
 
-        let max: number | undefined = undefined;
-        let disabled = false;
-
-        if (product.dependsOn) {
-          const total = getTotalOf(product.dependsOn);
-          max = product.maxBySumOf ? total : total;
-          if (total === 0) disabled = true;
-        }
-
-        return (
-          <div
-            key={product.id}
-            className={`rounded-2xl p-4 shadow-md border-4 ${
-              product.group === 'red'
-                ? 'border-red-500'
-                : 'border-blue-500'
-            } bg-gray-800 text-white`}
-          >
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-full h-36 object-contain mb-3"
-            />
-            <h2 className="text-xl font-bold mb-1">{product.name}</h2>
-            <div className="text-green-400 font-semibold text-lg mb-2">
-              {product.price} ₽
+          return (
+            <div
+              key={product.id}
+              className={`bg-[#2c2c2e] p-4 rounded-xl border-2 ${groupColor} flex flex-col`}
+            >
+              <div className="relative w-full h-40 mb-3 rounded-lg overflow-hidden bg-white">
+                <Image src={product.image} alt={product.name} fill objectFit="cover" />
+              </div>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-lg font-bold">{product.name}</h3>
+                <FaQuestionCircle
+                  className="text-gray-300 cursor-pointer"
+                  onClick={() => setSelectedProduct(product)}
+                />
+              </div>
+              <div className="text-green-400 text-lg font-bold mb-3">{product.price} ₽</div>
+              <div className="flex items-center justify-between">
+                <button
+                  className="bg-gray-700 px-2 py-1 rounded text-lg"
+                  onClick={() => handleChange(product.id, -1)}
+                  disabled={qty === 0}
+                >
+                  <FaMinus />
+                </button>
+                <span className="text-lg font-semibold">{qty}</span>
+                <button
+                  className={`px-2 py-1 rounded text-lg ${
+                    product.group === 'red' ? 'bg-red-600' : 'bg-blue-600'
+                  } ${qty >= maxQty || !available ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  onClick={() => handleChange(product.id, 1)}
+                  disabled={qty >= maxQty || !available}
+                >
+                  <FaPlus />
+                </button>
+              </div>
             </div>
+          );
+        })}
+      </div>
 
-            <div className="flex items-center justify-between gap-2">
-              <button
-                onClick={() => handleChange(product.id, -1, max)}
-                disabled={disabled}
-                className={`p-2 rounded-lg ${
-                  product.group === 'red'
-                    ? 'bg-red-600'
-                    : 'bg-blue-600'
-                } disabled:opacity-40`}
-              >
-                <FaMinus />
-              </button>
-
-              <span className="text-lg min-w-[2ch] text-center">
-                {quantity}
-              </span>
-
-              <button
-                onClick={() => handleChange(product.id, 1, max)}
-                disabled={disabled}
-                className={`p-2 rounded-lg ${
-                  product.group === 'red'
-                    ? 'bg-red-600'
-                    : 'bg-blue-600'
-                } disabled:opacity-40`}
-              >
-                <FaPlus />
-              </button>
-            </div>
-          </div>
-        );
-      })}
+      <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
     </div>
   );
 }
